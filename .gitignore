@@ -1,0 +1,16 @@
+# Local STT model weights (download separately, see README)
+models/
+
+# Secrets
+.env
+
+# Generated / temp audio
+*.wav
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
