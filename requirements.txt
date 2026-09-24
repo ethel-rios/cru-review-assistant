@@ -1,0 +1,2 @@
+# Speech-to-text (scripts/transcribe_call.py)
+faster-whisper==1.2.1

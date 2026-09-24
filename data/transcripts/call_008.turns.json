@@ -1,0 +1,78 @@
+{
+  "call_id": 7,
+  "source": "whisper-small.en",
+  "turns": [
+    {
+      "speaker": "AGENT",
+      "start_sec": 0.0,
+      "end_sec": 3.52,
+      "text": "Thank you for calling customer service. My name is Sarah. How can I help you today?"
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 5.08,
+      "end_sec": 13.94,
+      "text": "Hi, Sarah. Yeah, I'm calling because my monthly auto bill just seems too high lately. I'm trying to see if there's any way we can lower my payments on the Volvo EX30."
+    },
+    {
+      "speaker": "AGENT",
+      "start_sec": 14.54,
+      "end_sec": 21.44,
+      "text": "I can certainly look into that for you and review your policy options. To get started, could I please have your first and last name?"
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 22.48,
+      "end_sec": 23.82,
+      "text": "Sure. It's Fanny Rios."
+    },
+    {
+      "speaker": "AGENT",
+      "start_sec": 24.36,
+      "end_sec": 27.48,
+      "text": "Thank you, Fanny. And can I get your member number, please?"
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 27.48,
+      "end_sec": 31.88,
+      "text": "Let me check. Yeah, it's 123456."
+    },
+    {
+      "speaker": "AGENT",
+      "start_sec": 32.76,
+      "end_sec": 54.58,
+      "text": "Perfect. I have your account pulled up. I see the 2024 Volvo EX30 here with VIN number ERG2174639K. Let's take a look at your current coverages. All right. One option to lower your monthly premium without changing your deductibles is to remove the rental reimbursement coverage."
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 55.44,
+      "end_sec": 57.72,
+      "text": "Okay. And how much would that save me?"
+    },
+    {
+      "speaker": "AGENT",
+      "start_sec": 58.72,
+      "end_sec": 73.74,
+      "text": "Removing that would drop your premium by about $15 a month. Just keep in mind, if we remove this and you are in an accident, the policy will no longer cover the cost of a rental car while your Volvo is in the shop. You would have to pay for a rental out of pocket."
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 75.36,
+      "end_sec": 82.86,
+      "text": "Honestly, I work from home most of the week anyway, so if the car is in the shop, I can manage without a rental. Let's go ahead and take that off."
+    },
+    {
+      "speaker": "AGENT",
+      "start_sec": 83.96,
+      "end_sec": 95.76,
+      "text": "Completely understand. I will go ahead and process that endorsement for you right now. Your new monthly payment will be updated on your next billing cycle. Is there anything else I can adjust for you today?"
+    },
+    {
+      "speaker": "MEMBER",
+      "start_sec": 97.06,
+      "end_sec": 100.36,
+      "text": "No, that's exactly what I needed. Thanks for your help, Sarah."
+    }
+  ]
+}
