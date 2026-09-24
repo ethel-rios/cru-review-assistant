@@ -14,7 +14,7 @@
 - Two-person team.
 
 ## Solution plan
-See `README.md` for the full status, workflow and work proposal.
+See `README.md` for how the app works, the toolkit and the demo modes.
 1. Audio: `data/audio/call_008.mp3` is the only call recording the app will use (synthetic, ElevenLabs).
 2. Transcription: local Whisper (`faster-whisper`, `small.en`, CPU) with word timestamps → `scripts/transcribe_call.py`; speaker turns (MEMBER/AGENT) → `scripts/label_speakers.py` → `call_segments`. Pre-transcribed: `data/transcripts/`. Run with `.venv/Scripts/python`.
 3. AI analysis (Claude): summary, highlights, sentiment, requested/promised changes per call.
@@ -42,6 +42,34 @@ See `README.md` for the full status, workflow and work proposal.
   - Call 7 (live demo, real audio): member asks to remove rental; agent promises to process it; NO transaction, rental R40 still active → CRU alert (NOT_APPLIED).
 - `expected_call_events` / `v_expected_cru_evidence` hold the "ground truth": use them only to evaluate what the AI extracts, never expose them to the chatbot tools.
 - `transactions.source_call_id` is only a hint; the chatbot finds calls by policy and date.
+
+## Frontend and demo modes
+- `frontend/`: no-build HTML/CSS/JS served by FastAPI at `/` (policy panel, streamed chat with citation chips, call evidence panel).
+- `MOCK_CLAUDE=1` in `.env` → simulated Claude (`backend/services/mock_claude.py`); results tagged `mock-claude`, purged on real-mode startup.
+- Offline preview: `demo/cru-demo-offline.html` (single file, replays 6 recorded reviews). Rebuild with `.venv/Scripts/python scripts/build_offline_demo.py` after UI or data changes.
+
+## Current status and next steps
+- Working branch: `database-setup` (pushed, not merged into `main`).
+- Chat not yet verified end-to-end against the live Claude API (call analysis for call 7 did run live once).
+- Next: run the live review for all three policies, replace the hand-marked speaker changes in `scripts/label_speakers.py` with Claude labeling, rehearse the demo, merge to `main`.
+- Consider removing `data/cru.db` from git (it is generated, and using the app writes AI output into it).
+
+## Decisions — do not revert
+- Scripted call 6 (Rideshare Gap promise) and its transactions were removed on purpose; call 7 is the NOT_APPLIED case.
+- Call 7 audio says "Volvo CX30" (not a real model); transcript turns use **EX30** (`CORRECTIONS` in `label_speakers.py`). The DB VIN `YV4EF3ERG2174639K` ends with the 11 characters the agent reads aloud.
+- Scripted transcripts mention vehicle classes only, no rental car makes/models.
+- Transaction ids are global across policies (Fanny's only transaction is #12); that is intended.
+- Do not commit the working copy of `data/cru.db` after using the app (it contains AI output); restore it with `git checkout -- data/cru.db` or rebuild with `scripts/build_db.py`.
+
+## Setting up on a new machine
+- Not in git: `.venv/`, `.env` (API key), `models/` (Whisper, ~480 MB, downloads on first transcription). Recreate with `python -m venv .venv`, `.venv/Scripts/python -m pip install -r requirements.txt`, `copy .env.example .env`.
+- Whisper (`ctranslate2`) needs `msvcp140.dll`: install the VC++ Redistributable x64 or copy a Microsoft-signed 64-bit copy into `.venv/Lib/site-packages/ctranslate2/`. The VAD filter is off because `onnxruntime` needs the same runtime.
+- Windows Command Prompt "QuickEdit" pauses the server when the window is clicked (page loads blank) — press Esc or disable QuickEdit.
+
+## Working with the user
+- The user writes in Spanish; answer in Spanish. Code, identifiers, UI text, prompts and docs stay in English.
+- Commit and push only when asked. Commit as `ethel-rios` with `git -c user.name=... -c user.email=...` (no global git identity is configured).
+- Never ask the user to paste secrets in chat; the API key lives only in `.env`.
 
 ## Language
 - All code, identifiers, UI text, prompts and docs in English.
