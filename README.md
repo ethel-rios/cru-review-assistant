@@ -2,7 +2,23 @@
 
 Hackathon project — TCS x USAA (Property & Casualty, auto). A web app with an AI chatbot that audits policy changes against the evidence in recorded member calls.
 
-> **Status:** planning complete, no application code yet. This document captures everything decided so far so work can continue on another machine.
+> **Status:** database, call transcript, backend (FastAPI + chat agent) and web UI done; next: test against the live Claude API and rehearse the demo. This document captures everything decided so far so work can continue on another machine.
+
+## Quick start
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
+cp .env.example .env            # then set ANTHROPIC_API_KEY
+python scripts/build_db.py      # rebuilds data/cru.db from data/schema.sql
+.venv/Scripts/python -m uvicorn backend.main:app --reload
+```
+
+Open the app at **http://127.0.0.1:8000/** (API docs at http://127.0.0.1:8000/docs). Everything except `/api/chat` and `/api/calls/{id}/analyze` works without an API key.
+
+**Rehearse without an API key:** add `MOCK_CLAUDE=1` to `.env` and restart. Claude's answers are simulated (a scripted review flow; call analyses built from the ground truth), while the tools, database writes and UI events run for real. Use the web app as usual (the top bar shows **Simulated Claude**), or chat from the terminal with `python scripts/demo_chat.py`.
+
+**Offline preview (to show the page, no setup):** open `demo/cru-demo-offline.html` by double-clicking it. It is the same web app in one file (2.3 MB, audio included) that replays six recorded reviews: the three example policies × *Rental reimbursement* / *All coverages*, started from the form or the suggested questions. No server, database, internet or API key. Rebuild it after UI or data changes with `.venv/Scripts/python scripts/build_offline_demo.py`. Remove the line to use the real API; simulated analyses and findings are deleted automatically when the server starts in real mode.
 
 ---
 
@@ -88,7 +104,7 @@ Reviewer (chat): "Review changes to rental reimbursement on policy AUT-4471982-7
 ```
 ├── README.md
 ├── CLAUDE.md
-├── .env.example                  # ANTHROPIC_API_KEY, DB_PATH, AUDIO_DIR, WHISPER_MODEL_DIR
+├── .env.example                  # ANTHROPIC_API_KEY, DB_PATH, CLAUDE_MODEL
 ├── requirements.txt
 ├── data/
 │   ├── schema.sql                # English schema + seed
@@ -97,30 +113,38 @@ Reviewer (chat): "Review changes to rental reimbursement on policy AUT-4471982-7
 ├── models/whisper-small.en/      # local STT model (git-ignored)
 ├── scripts/
 │   ├── build_db.py               # schema.sql → cru.db
-│   ├── register_call.py          # insert call_008.mp3 as a call record
+│   ├── transcribe_call.py        # local Whisper → data/transcripts/<name>.json
+│   ├── label_speakers.py         # Whisper segments → MEMBER/AGENT turns
+│   ├── demo_chat.py              # terminal chat client for /api/chat (SSE)
+│   ├── build_offline_demo.py     # records mock reviews → demo/cru-demo-offline.html
 │   └── mp3_to_wav.ps1
 ├── backend/
-│   ├── main.py                   # FastAPI app, static + audio mounts
-│   ├── config.py
-│   ├── db.py                     # read-only connection for chat tools
+│   ├── main.py                   # FastAPI app (+ serves frontend/ when it exists)
+│   ├── config.py                 # .env settings (DB_PATH, CLAUDE_MODEL)
+│   ├── db.py                     # read-only connection for queries; write only for AI output
+│   ├── queries.py                # all reads, shared by the REST API and the chat tools
 │   ├── api/
-│   │   ├── policies.py           # GET /api/policies/{number}, /changes
-│   │   ├── calls.py              # GET /api/calls/{id}, /transcript, /audio; POST /transcribe
-│   │   └── chat.py               # POST /api/chat (SSE)
+│   │   ├── policies.py           # GET /api/policies/{number}?member_number=, /changes, /coverages, /calls, /findings
+│   │   ├── calls.py              # GET /api/calls/{id}, /transcript, /audio; POST /analyze
+│   │   └── chat.py               # POST /api/chat (SSE), POST /api/demo/reset
 │   ├── services/
-│   │   ├── audio.py              # MP3 → 16 kHz WAV
-│   │   ├── transcription.py      # Whisper → timestamped segments (cached)
-│   │   ├── call_analysis.py      # Claude: speakers, summary, highlights, sentiment
-│   │   └── audit.py              # requested vs. applied → verdict
+│   │   ├── llm.py                # AsyncAnthropic client, model, refusal fallback
+│   │   ├── mock_claude.py        # simulated Claude for MOCK_CLAUDE=1
+│   │   ├── call_analysis.py      # Claude structured output → call_analysis (cached)
+│   │   └── audit.py              # validates + stores verdicts in audit_findings
 │   └── chat/
-│       ├── agent.py              # tool-use loop + streaming
-│       ├── tools.py
-│       └── prompts.py
-└── frontend/
+│       ├── agent.py              # streaming tool-use loop → UI events
+│       ├── tools.py              # 8 strict tools, status labels, UI events
+│       └── prompts.py            # system prompt
+└── frontend/                     # no build step, served by FastAPI at /
     ├── index.html
     ├── css/app.css
-    ├── js/ app.js, api.js, chat.js, evidence-panel.js, audio-player.js
-    └── vendor/
+    └── js/
+        ├── app.js                # chat: streamed answer, tool steps, citation chips
+        ├── api.js                # fetch helpers + SSE reader for POST /api/chat
+        ├── format.js             # escaping, times, small Markdown renderer with citations
+        ├── policy-panel.js       # member, policy, findings, vehicles, coverages, change history
+        └── call-panel.js         # audio + "now playing" turn, analysis, full-transcript dialog
 ```
 
 ### Chatbot tools
@@ -129,14 +153,16 @@ The model only reaches the DB through fixed tools (no free-form SQL) → reprodu
 
 | Tool | Purpose |
 |---|---|
-| `find_policy(member_number, policy_number)` | Validate that member and policy match |
-| `get_policy_changes(policy_number, coverage_code?, change_type?, date_from?, date_to?)` | Transactions with their policy term |
-| `find_calls_for_change(transaction_id, window_days=30)` | Calls around the change |
-| `list_calls(policy_number, date_from?, date_to?)` | All calls in a period — needed for requests that were never applied (no transaction to start from, e.g. call 7) |
-| `transcribe_call(call_id)` | Whisper transcription (or cached) |
-| `get_transcript(call_id)` | Full transcript from `v_call_transcripts` (turns with timestamps) |
-| `analyze_call(call_id)` | Summary, highlights, sentiment, requested/promised changes |
-| `audit_change(transaction_id, call_id)` | Verdict with quotes + timestamps |
+| `find_policy(member_number, policy_number)` | Validate that member and policy match; member, policy, current term, drivers, vehicles, coverages in force |
+| `get_policy_changes(policy_number, coverage_code, change_type, date_from, date_to)` | Transactions with their policy term, channel, exact old/new rental tier and deductible |
+| `get_coverages(policy_number, coverage_code, as_of)` | Coverages in force on a date (what the policy showed after a call), or the full history |
+| `list_calls(policy_number, date_from, date_to)` | All calls in a period — needed for requests that were never applied (no transaction to start from, e.g. call 7) |
+| `find_calls_for_change(transaction_id, window_days)` | Calls within ±N days of a change (default 30) |
+| `get_transcript(call_id)` | Full transcript (turns with seq, speaker, `m:ss`) |
+| `analyze_call(call_id)` | Summary, highlights, sentiment, requested changes (with final decision) and agent promises — Claude structured output, cached in `call_analysis` |
+| `record_audit_finding(policy_number, verdict, coverage_code, transaction_id, call_id, segment_seq, requested, applied, explanation)` | Store a verdict (`MATCH / MISMATCH / NOT_APPLIED / NO_CALL_EVIDENCE`) in `audit_findings`; references are validated against the policy |
+
+Tools use strict schemas (every field required, optional ones nullable). The model is `claude-opus-5` (override with `CLAUDE_MODEL`), with server-side refusal fallback (`fallbacks: "default"`) and prompt caching. Answers stream to the browser as SSE events: `session`, `text`, `tool` / `tool_done` (status line), `policy`, `call`, `finding` (update the side panels), `error`, `done` — see `backend/chat/agent.py`.
 
 ### How the chatbot uses the tables
 
@@ -163,8 +189,8 @@ Rules:
 
 ### UI (single page)
 
-- **Left — Policy Context:** member, policy, terms, change timeline filterable by coverage.
-- **Center — Chat:** citations rendered as chips (`Call 8 · 0:42`) that seek the audio player.
+- **Left — Policy Context:** "Start a review" form (member, policy, coverage; example policies), then member, policy, current term, **findings** (verdict pills), vehicles, coverages in force, change history filterable by coverage.
+- **Center — Chat:** streamed answer with the assistant's steps ("Reading call transcript…"); citations rendered as chips (`Call 7 · 1:15` seeks the audio, `Txn 8` highlights the change).
 - **Right — Call Evidence:** audio player, transcript with MEMBER/AGENT labels and timestamps (an **"Open full transcript"** button shows every turn of the call from `v_call_transcripts`; clicking a timestamp seeks the audio when there is a recording), summary, highlights, sentiment per speaker/over time, audit verdict card.
 
 ### Live demo strategy
@@ -186,11 +212,11 @@ Rules:
 
 ## 6. Next steps
 
-1. Install the app dependencies (`fastapi`, `uvicorn`, `anthropic`) and get an Anthropic API key.
+1. ~~Install the app dependencies~~ (in `requirements.txt`). Get an Anthropic API key and put it in `.env`.
 2. ~~Download the Whisper model~~ / ~~transcribe `call_008.mp3` and register it~~ (done: call 7, policy 3).
 3. Replace the hand-marked speaker changes in `scripts/label_speakers.py` with Claude labeling in `call_analysis.py`.
 4. ~~Translate the schema to English (`data/schema.sql`) + `scripts/build_db.py`.~~ Done.
-5. Backend services → chat agent + tools → frontend.
+5. ~~Backend services → chat agent + tools → frontend~~ (done; chat not yet run end-to-end against the live API).
 6. Rehearse the demo.
 
 ### Decisions pending

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRU Review Assistant</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">CRU</span>
+      <div>
+        <h1>CRU Review Assistant</h1>
+        <p>Coverage Response Unit · auto policy review</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="model-badge" class="badge">Connecting…</span>
+      <button id="reset-btn" class="btn btn-ghost" type="button" title="Clear analyses, findings and the conversation">Reset demo</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Policy context -->
+    <aside class="panel" aria-label="Policy context">
+      <form id="review-form" class="review-form">
+        <h2 class="panel-title">Start a review</h2>
+        <label for="member-input">Member number</label>
+        <input id="member-input" name="member" autocomplete="off" placeholder="e.g. 123456" required>
+        <label for="policy-input">Policy number</label>
+        <input id="policy-input" name="policy" autocomplete="off" placeholder="e.g. AUT-0123456-7103" required>
+        <label for="coverage-input">Coverage</label>
+        <select id="coverage-input" name="coverage">
+          <option value="rental reimbursement">Rental reimbursement</option>
+          <option value="all">All coverages</option>
+          <option value="collision">Collision</option>
+          <option value="comprehensive">Comprehensive</option>
+          <option value="roadside assistance">Roadside assistance</option>
+          <option value="accident forgiveness">Accident forgiveness</option>
+          <option value="car replacement assistance">Car replacement assistance</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Start review</button>
+        <div class="examples">
+          <span>Examples:</span>
+          <button type="button" class="link" data-member="123456" data-policy="AUT-0123456-7103">Fanny Rios</button>
+          <button type="button" class="link" data-member="00-4471-982" data-policy="AUT-4471982-7101">Daniel R. Ortiz</button>
+          <button type="button" class="link" data-member="00-5528-310" data-policy="AUT-5528310-7102">Megan L. Brooks</button>
+        </div>
+      </form>
+      <div id="policy-view" hidden></div>
+    </aside>
+
+    <!-- Chat -->
+    <section class="chat" aria-label="Review assistant chat">
+      <div id="messages" class="messages" aria-live="polite">
+        <div id="chat-empty" class="chat-empty">
+          <h2>Audit coverage changes against member calls</h2>
+          <p>Give the assistant a member number and a policy number. It finds the policy changes, reads the
+            calls around them and checks that what was requested or promised on the phone is what the policy shows.</p>
+          <div class="suggestions">
+            <button type="button" class="suggestion">Review rental reimbursement changes on policy AUT-0123456-7103, member 123456.</button>
+            <button type="button" class="suggestion">Review all changes on policy AUT-4471982-7101, member 00-4471-982.</button>
+            <button type="button" class="suggestion">Review rental reimbursement changes on policy AUT-5528310-7102, member 00-5528-310.</button>
+          </div>
+        </div>
+      </div>
+      <form id="composer" class="composer">
+        <label for="composer-input" class="visually-hidden">Message</label>
+        <textarea id="composer-input" rows="1" placeholder="Ask about a policy, a change or a call…" required></textarea>
+        <button id="send-btn" class="btn btn-primary" type="submit">Send</button>
+      </form>
+    </section>
+
+    <!-- Call evidence -->
+    <aside class="panel" aria-label="Call evidence">
+      <h2 class="panel-title">Call evidence</h2>
+      <div id="call-tabs" class="call-tabs" role="tablist"></div>
+      <div id="call-view">
+        <p class="empty-note">Calls appear here as the assistant reads them. Click a citation such as
+          <span class="cite cite-static">Call 7 · 1:15</span> to jump to that moment.</p>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="transcript-dialog" class="transcript-dialog" aria-labelledby="transcript-title">
+    <div class="dialog-head">
+      <h2 id="transcript-title">Transcript</h2>
+      <button type="button" class="btn btn-ghost" id="transcript-close">Close</button>
+    </div>
+    <ol id="transcript-list" class="transcript"></ol>
+  </dialog>
+</body>
+</html>

@@ -20,6 +20,10 @@ See `README.md` for the full status, workflow and work proposal.
 3. AI analysis (Claude): summary, highlights, sentiment, requested/promised changes per call.
 4. Chatbot: given member number + policy number + criteria, finds policy changes, finds the calls around each change (and lists the policy's calls in the period, to catch requests with no transaction), transcribes/analyzes them, and audits "what was asked on the call" vs. "what was applied to the policy", citing date, call and timestamp.
 
+## Backend
+- FastAPI app in `backend/` (run: `.venv/Scripts/python -m uvicorn backend.main:app --reload`). Reads go through `backend/queries.py` on a read-only connection; only `call_analysis` and `audit_findings` are written.
+- Chat agent (`backend/chat/`): manual streaming tool-use loop with the Anthropic SDK (`AsyncAnthropic`, `client.beta.messages.stream`), model `claude-opus-5`, `fallbacks: "default"`, prompt caching, 8 strict tools. No free-form SQL, no access to the ground truth.
+
 ## Database
 - SQLite. Full script in `data/schema.sql`; build with `python scripts/build_db.py` (or `sqlite3 data/cru.db < data/schema.sql`).
 - Schema and seed data are in English: `members`, `policies`, `policy_terms`, `drivers`, `vehicles`, `coverage_catalog`, `rental_tiers`, `coverages`, `transactions`, `calls`, `call_segments`; ground truth `expected_call_events`; AI output `call_analysis`, `audit_findings`.
