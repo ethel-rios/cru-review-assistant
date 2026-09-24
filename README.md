@@ -41,7 +41,7 @@ Hackathon project — TCS x USAA (Property & Casualty, auto). A web app with an 
 - **Source data:** `coverage_catalog` (12 rows), `rental_tiers` (4), `members` (3), `policies` (3), `policy_terms` (24 six-month terms), `drivers` (4), `vehicles` (5), `coverages` (32, date-ranged; rental limits come only from `rental_tiers`), `transactions` (12, with exact `old_/new_rental_tier` and `old_/new_deductible` plus display text), `calls` (7; `transcript_source` = `SCRIPTED` or `WHISPER`, `audio_file` only for real recordings), `call_segments` (47, `start_sec`/`end_sec`).
 - **Ground truth (evaluation only, never exposed to the chatbot):** `expected_call_events` (11) and view `v_expected_cru_evidence`.
 - **AI output (empty in the seed):** `call_analysis` (summary, highlights, sentiment, requested changes, agent promises per call) and `audit_findings` (verdict `MATCH/MISMATCH/NOT_APPLIED/NO_CALL_EVIDENCE` with quoted segment).
-- **Chatbot views:** `v_active_coverages` (active coverages), `v_change_history` (transaction + policy term).
+- **Chatbot views:** `v_active_coverages` (active coverages), `v_change_history` (transaction + policy term), `v_call_transcripts` (full transcript per call, one row per call: header fields + `full_text` with `[m:ss] SPEAKER: text` lines, built from `call_segments`).
 - **Rental reimbursement tiers (demo assumptions):** R30 Economy/Compact, R40 Intermediate/Standard, R50 Full-size sedan/Small SUV, R60 Mid-size SUV/Minivan/Pickup; max 30 days.
 - **Sample policies:**
   - Policy 1 — TX, Army, `AUT-4471982-7101`: F-150 (replaced by Tacoma in 2024), CR-V. 8 transactions, 5 scripted calls.
@@ -105,7 +105,7 @@ Reviewer (chat): "Review changes to rental reimbursement on policy AUT-4471982-7
 │   ├── db.py                     # read-only connection for chat tools
 │   ├── api/
 │   │   ├── policies.py           # GET /api/policies/{number}, /changes
-│   │   ├── calls.py              # GET /api/calls/{id}, /audio; POST /transcribe
+│   │   ├── calls.py              # GET /api/calls/{id}, /transcript, /audio; POST /transcribe
 │   │   └── chat.py               # POST /api/chat (SSE)
 │   ├── services/
 │   │   ├── audio.py              # MP3 → 16 kHz WAV
@@ -134,6 +134,7 @@ The model only reaches the DB through fixed tools (no free-form SQL) → reprodu
 | `find_calls_for_change(transaction_id, window_days=30)` | Calls around the change |
 | `list_calls(policy_number, date_from?, date_to?)` | All calls in a period — needed for requests that were never applied (no transaction to start from, e.g. call 7) |
 | `transcribe_call(call_id)` | Whisper transcription (or cached) |
+| `get_transcript(call_id)` | Full transcript from `v_call_transcripts` (turns with timestamps) |
 | `analyze_call(call_id)` | Summary, highlights, sentiment, requested/promised changes |
 | `audit_change(transaction_id, call_id)` | Verdict with quotes + timestamps |
 
@@ -164,7 +165,7 @@ Rules:
 
 - **Left — Policy Context:** member, policy, terms, change timeline filterable by coverage.
 - **Center — Chat:** citations rendered as chips (`Call 8 · 0:42`) that seek the audio player.
-- **Right — Call Evidence:** audio player, transcript with MEMBER/AGENT labels and timestamps, summary, highlights, sentiment per speaker/over time, audit verdict card.
+- **Right — Call Evidence:** audio player, transcript with MEMBER/AGENT labels and timestamps (an **"Open full transcript"** button shows every turn of the call from `v_call_transcripts`; clicking a timestamp seeks the audio when there is a recording), summary, highlights, sentiment per speaker/over time, audit verdict card.
 
 ### Live demo strategy
 

@@ -476,6 +476,26 @@ JOIN policy_terms pt ON pt.policy_id = t.policy_id
      AND t.transaction_date >= pt.start_date AND t.transaction_date < pt.end_date
 LEFT JOIN vehicles v ON v.id = t.vehicle_id;
 
+-- [chatbot + UI] Full transcript of each call, one row per call.
+-- Built from call_segments (the stored turns), so it never drifts from them.
+-- full_text lines look like: "[1:15] MEMBER: Let's go ahead and take that off."
+CREATE VIEW v_call_transcripts AS
+SELECT ca.id AS call_id, p.policy_number, m.full_name AS member_name,
+       ca.call_datetime, ca.agent_name, ca.duration_sec, ca.reason,
+       ca.transcript_source, ca.audio_file,
+       t.turn_count, t.full_text
+FROM calls ca
+JOIN policies p ON p.id = ca.policy_id
+JOIN members m ON m.id = p.member_id
+LEFT JOIN (
+    SELECT call_id, COUNT(*) AS turn_count, group_concat(line, char(10)) AS full_text
+    FROM (SELECT call_id,
+                 printf('[%d:%02d] %s: %s', CAST(start_sec AS INTEGER)/60,
+                        CAST(start_sec AS INTEGER)%60, speaker, text) AS line
+          FROM call_segments ORDER BY call_id, seq)
+    GROUP BY call_id
+) t ON t.call_id = ca.id;
+
 -- [EVALUATION ONLY] Expected evidence: said on the call vs. applied
 CREATE VIEW v_expected_cru_evidence AS
 SELECT ca.id AS call_id, ca.call_datetime, p.policy_number,

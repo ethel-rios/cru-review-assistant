@@ -23,6 +23,7 @@ See `README.md` for the full status, workflow and work proposal.
 ## Database
 - SQLite. Full script in `data/schema.sql`; build with `python scripts/build_db.py` (or `sqlite3 data/cru.db < data/schema.sql`).
 - Schema and seed data are in English: `members`, `policies`, `policy_terms`, `drivers`, `vehicles`, `coverage_catalog`, `rental_tiers`, `coverages`, `transactions`, `calls`, `call_segments`; ground truth `expected_call_events`; AI output `call_analysis`, `audit_findings`.
+- Full call transcripts: view `v_call_transcripts` (one row per call, built from `call_segments`) — used for the UI "Open full transcript" option.
 - Rental reimbursement: 4 tiers R30/R40/R50/R60 ($/day), max 30 days, each with a rental vehicle class. Amounts and classes are ASSUMPTIONS for the demo.
 - When describing rental coverage, the chatbot answers with the vehicle class only (e.g. "Intermediate / Standard"), never specific car makes or models.
 - Public USAA info used: rental requires collision + comprehensive, does not cover maintenance, called "transportation expense" in some states; car replacement assistance pays 20% over actual cash value.
